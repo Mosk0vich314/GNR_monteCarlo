@@ -38,13 +38,11 @@ function auto_convergence(data_folder, total_trials, num_workers)
     switch param_Y_name; case 'L_gap', L_gap=opt_Y; case 'apex_angle', apex_angle=opt_Y; case 'D_tip', D_tip=opt_Y; case 'L_gnr_mean', L_gnr_mean=opt_Y; case 'avg_domain_size', avg_domain_size=opt_Y; case 'target_angle', target_angle=opt_Y; case 'mean_defect_distance', mean_defect_distance=opt_Y; case 'L_gnr_std', L_gnr_std=opt_Y; case 'min_gnr_length', min_gnr_length=opt_Y; case 'gnr_spacing', gnr_spacing=opt_Y; case 'end_to_end_gap', end_to_end_gap=opt_Y; case 'angle_variance', angle_variance=opt_Y; case 'slide_step', slide_step=opt_Y; end
     switch param_Z_name; case 'L_gap', L_gap=opt_Z; case 'apex_angle', apex_angle=opt_Z; case 'D_tip', D_tip=opt_Z; case 'L_gnr_mean', L_gnr_mean=opt_Z; case 'avg_domain_size', avg_domain_size=opt_Z; case 'target_angle', target_angle=opt_Z; case 'mean_defect_distance', mean_defect_distance=opt_Z; case 'L_gnr_std', L_gnr_std=opt_Z; case 'min_gnr_length', min_gnr_length=opt_Z; case 'gnr_spacing', gnr_spacing=opt_Z; case 'end_to_end_gap', end_to_end_gap=opt_Z; case 'angle_variance', angle_variance=opt_Z; case 'slide_step', slide_step=opt_Z; end
 
-    % Create folder silently without throwing warnings
     conv_folder = fullfile(data_folder, sprintf('00_Optimal_Convergence_%dk', round(total_trials/1000)));
     if ~exist(conv_folder, 'dir')
         mkdir(conv_folder);
     end
 
-    % --- CLUSTER CONFIGURATION (SIMPLIFIED) ---
     timestamp = datestr(now, 'yyyymmdd_HHMMSS');
     desired_workers = num_workers; 
     myCluster = parcluster('local');
@@ -64,18 +62,19 @@ function auto_convergence(data_folder, total_trials, num_workers)
     else
         fprintf('%d workers already active! Bypassing startup phase...\n', desired_workers);
     end
-    % ------------------------------------------
 
     gamma_theta = (L_gnr_std^2) / L_gnr_mean; 
     gamma_k = (L_gnr_mean^2) / (L_gnr_std^2);
     
-    % --- PURE WEDGE GEOMETRY MATH (D_tip is now obsolete) ---
+    % --- ROUNDED TIP GEOMETRY MATH ---
+    R = D_tip / 2; 
     half_angle = apex_angle / 2; 
-    xc_L = -L_gap/2; 
-    xc_R = L_gap/2; 
-    sim_limit = L_gap + max(L_gnr_mean, 40); 
-    % --------------------------------------------------------
-    xt_L = xc_L - R*sind(half_angle); xt_R = xc_R + R*sind(half_angle);
+    xc_L = -L_gap/2 - R; 
+    xc_R = L_gap/2 + R; 
+    sim_limit = L_gap + D_tip + max(L_gnr_mean, 40); 
+    xt_L = xc_L - R*sind(half_angle); 
+    xt_R = xc_R + R*sind(half_angle);
+    % ---------------------------------
 
     out_Np = zeros(total_trials, 1); out_Nd = zeros(total_trials, 1);
 
@@ -182,27 +181,25 @@ function auto_convergence(data_folder, total_trials, num_workers)
             end
         end
         
-        % --- COLLISION DETECTION (SHARP WEDGE) ---
+        % --- SMOOTH TANGENTIAL COLLISION DETECTION ---
         b_p = 0; b_d = 0;
         for k = 1:length(GNR_X1)
-            xx = linspace(GNR_X1(k), GNR_X2(k), 10); 
-            yy = linspace(GNR_Y1(k), GNR_Y2(k), 10);
+            xx = linspace(GNR_X1(k), GNR_X2(k), 10); yy = linspace(GNR_Y1(k), GNR_Y2(k), 10);
             
-            % If a point is behind the gap boundary AND inside the angled boundary
-            hit_L = any(xx <= xc_L & abs(yy) <= (xc_L - xx) * tand(half_angle));
-            hit_R = any(xx >= xc_R & abs(yy) <= (xx - xc_R) * tand(half_angle));
+            hit_L = any(((xx-xc_L).^2+yy.^2<=R^2 & xx>=xt_L) | (xx<xt_L & abs(yy)<=R*cosd(half_angle)+(xt_L-xx)*tand(half_angle)));
+            hit_R = any(((xx-xc_R).^2+yy.^2<=R^2 & xx<=xt_R) | (xx>xt_R & abs(yy)<=R*cosd(half_angle)+(xx-xt_R)*tand(half_angle)));
             
             if hit_L && hit_R
                 channel_defects = 0; d_x = DEF_X{k}; d_y = DEF_Y{k};
                 for def = 1:length(d_x)
-                    def_in_L = (d_x(def) <= xc_L) & (abs(d_y(def)) <= (xc_L - d_x(def)) * tand(half_angle)); 
-                    def_in_R = (d_x(def) >= xc_R) & (abs(d_y(def)) <= (d_x(def) - xc_R) * tand(half_angle)); 
+                    def_in_L = ((d_x(def)-xc_L)^2+d_y(def)^2<=R^2 & d_x(def)>=xt_L) | (d_x(def)<xt_L & abs(d_y(def))<=R*cosd(half_angle)+(xt_L-d_x(def))*tand(half_angle));
+                    def_in_R = ((d_x(def)-xc_R)^2+d_y(def)^2<=R^2 & d_x(def)<=xt_R) | (d_x(def)>xt_R & abs(d_y(def))<=R*cosd(half_angle)+(d_x(def)-xt_R)*tand(half_angle));
                     if ~def_in_L && ~def_in_R; channel_defects = channel_defects + 1; end
                 end
                 if channel_defects == 0; b_p = b_p + 1; else; b_d = b_d + 1; end
             end
         end
-        % -----------------------------------------
+        % ---------------------------------------------
         out_Np(i) = b_p; out_Nd(i) = b_d; send(q, 1);
     end
     
