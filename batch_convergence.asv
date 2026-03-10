@@ -1,0 +1,50 @@
+% =========================================================================
+% BATCH CONVERGENCE QUEUE MANAGER
+% =========================================================================
+
+fprintf('\n==========================================\n');
+fprintf('STARTING OVERNIGHT CONVERGENCE QUEUE\n');
+fprintf('==========================================\n');
+
+% --- STATIC BASE PARAMETERS 1 ---
+% Define your standard parameters here so the execution block stays clean
+trials       = 50000;
+L_gap        = 20.0;
+apex_angle   = 25;
+D_tip        = 5;
+L_mean       = 35;
+dom_size     = 35;
+t_angle      = 0;
+def_dist     = 0;
+L_std        = 10.0;
+min_len      = 5;
+gnr_space    = 3.8;
+ee_gap       = 1.0;
+ang_var      = 1.0;
+s_step       = 0.5;
+morph        = 'aligned';
+
+% -------------------------------------------------------------------------
+% RUN 1: The Aligned Baseline
+% -------------------------------------------------------------------------
+fprintf('\n---> INITIATING RUN 1: Aligned Pristine Optimal...\n');
+run_convergence('Aligned_Pristine', trials, L_gap, apex_angle, D_tip, L_mean, dom_size, t_angle, def_dist, L_std, min_len, gnr_space, ee_gap, ang_var, s_step, 'aligned');
+
+% -------------------------------------------------------------------------
+% RUN 2: The Polydomain Comparison
+% -------------------------------------------------------------------------
+fprintf('\n---> INITIATING RUN 2: Polydomain Comparison...\n');
+% Notice how we just swap 'aligned' to 'polydomain' right at the end
+run_convergence('Polydomain_Baseline', trials, L_gap, apex_angle, D_tip, L_mean, dom_size, t_angle, def_dist, L_std, min_len, gnr_space, ee_gap, ang_var, s_step, 'polydomain');
+
+% -------------------------------------------------------------------------
+% RUN 3: High Defect Density Check
+% -------------------------------------------------------------------------
+fprintf('\n---> INITIATING RUN 3: High Defect Density (15nm)...\n');
+% Swapping the def_dist variable from 40 to 15
+run_convergence('Aligned_High_Defect', trials, L_gap, apex_angle, D_tip, L_mean, dom_size, t_angle, 15, L_std, min_len, gnr_space, ee_gap, ang_var, s_step, 'aligned');
+
+
+fprintf('\n==========================================\n');
+fprintf('ALL CONVERGENCE TESTS COMPLETED SUCCESSFULLY!\n');
+fprintf('==========================================\n');
