@@ -69,8 +69,12 @@ function auto_convergence(data_folder, total_trials, num_workers)
     gamma_theta = (L_gnr_std^2) / L_gnr_mean; 
     gamma_k = (L_gnr_mean^2) / (L_gnr_std^2);
     
-    R = D_tip / 2; half_angle = apex_angle / 2; xc_L = -L_gap/2 - R; xc_R = L_gap/2 + R; 
-    sim_limit = L_gap + D_tip + max(L_gnr_mean, 40); 
+    % --- PURE WEDGE GEOMETRY MATH (D_tip is now obsolete) ---
+    half_angle = apex_angle / 2; 
+    xc_L = -L_gap/2; 
+    xc_R = L_gap/2; 
+    sim_limit = L_gap + max(L_gnr_mean, 40); 
+    % --------------------------------------------------------
     xt_L = xc_L - R*sind(half_angle); xt_R = xc_R + R*sind(half_angle);
 
     out_Np = zeros(total_trials, 1); out_Nd = zeros(total_trials, 1);
@@ -178,21 +182,27 @@ function auto_convergence(data_folder, total_trials, num_workers)
             end
         end
         
+        % --- COLLISION DETECTION (SHARP WEDGE) ---
         b_p = 0; b_d = 0;
         for k = 1:length(GNR_X1)
-            xx = linspace(GNR_X1(k), GNR_X2(k), 10); yy = linspace(GNR_Y1(k), GNR_Y2(k), 10);
-            hit_L = any(((xx-xc_L).^2+yy.^2<=R^2 & xx>=xt_L) | (xx<xt_L & abs(yy)<=R*cosd(half_angle)+(xt_L-xx)*tand(half_angle))); 
-            hit_R = any(((xx-xc_R).^2+yy.^2<=R^2 & xx<=xt_R) | (xx>xt_R & abs(yy)<=R*cosd(half_angle)+(xx-xt_R)*tand(half_angle)));
+            xx = linspace(GNR_X1(k), GNR_X2(k), 10); 
+            yy = linspace(GNR_Y1(k), GNR_Y2(k), 10);
+            
+            % If a point is behind the gap boundary AND inside the angled boundary
+            hit_L = any(xx <= xc_L & abs(yy) <= (xc_L - xx) * tand(half_angle));
+            hit_R = any(xx >= xc_R & abs(yy) <= (xx - xc_R) * tand(half_angle));
+            
             if hit_L && hit_R
                 channel_defects = 0; d_x = DEF_X{k}; d_y = DEF_Y{k};
                 for def = 1:length(d_x)
-                    def_in_L = ((d_x(def)-xc_L)^2+d_y(def)^2<=R^2 & d_x(def)>=xt_L) | (d_x(def)<xt_L & abs(d_y(def))<=R*cosd(half_angle)+(xt_L-d_x(def))*tand(half_angle)); 
-                    def_in_R = ((d_x(def)-xc_R)^2+d_y(def)^2<=R^2 & d_x(def)<=xt_R) | (d_x(def)>xt_R & abs(d_y(def))<=R*cosd(half_angle)+(d_x(def)-xt_R)*tand(half_angle)); 
+                    def_in_L = (d_x(def) <= xc_L) & (abs(d_y(def)) <= (xc_L - d_x(def)) * tand(half_angle)); 
+                    def_in_R = (d_x(def) >= xc_R) & (abs(d_y(def)) <= (d_x(def) - xc_R) * tand(half_angle)); 
                     if ~def_in_L && ~def_in_R; channel_defects = channel_defects + 1; end
                 end
                 if channel_defects == 0; b_p = b_p + 1; else; b_d = b_d + 1; end
             end
         end
+        % -----------------------------------------
         out_Np(i) = b_p; out_Nd(i) = b_d; send(q, 1);
     end
     

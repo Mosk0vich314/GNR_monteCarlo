@@ -106,11 +106,12 @@ function out_folder = run_gnr_sweep(param_X_name, param_X_values, param_Y_name, 
         gamma_k = (L_gnr_mean^2) / (L_gnr_std^2);
         
         % Fillet Geometry Math
-        R = D_tip / 2; 
-        half_angle = apex_angle / 2; 
-        xc_L = -L_gap/2 - R; 
-        xc_R = L_gap/2 + R; 
-        sim_limit = L_gap + D_tip + max(L_gnr_mean, 40); 
+        % --- PURE WEDGE GEOMETRY MATH (D_tip is now obsolete) ---
+    half_angle = apex_angle / 2; 
+    xc_L = -L_gap/2; 
+    xc_R = L_gap/2; 
+    sim_limit = L_gap + max(L_gnr_mean, 40); 
+    % -------------------------------------------------------- 
         xt_L = xc_L - R*sind(half_angle); 
         xt_R = xc_R + R*sind(half_angle);
 

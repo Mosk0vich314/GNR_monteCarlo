@@ -82,3 +82,33 @@ generate_gnr_schematic(L_gap, apex_angle, D_tip, L_gnr_mean, avg_domain_size, ta
 
 to_analyzeFolder = 'SimRun_ALIGNED_gnr_spacing_vs_mean_defect_distance_vs_apex_angle_20260223_154744';
 analyze_gnr_results(to_analyzeFolder);
+
+%%
+% =========================================================================
+% QUICK VISUAL TEST (ROUNDED TIPS)
+% =========================================================================
+
+clear; clc; close all;
+
+% --- Core Parameters ---
+L_gap = 15;
+apex_angle = 45;       
+D_tip = 15;            % Set your rounded EBL resolution here
+L_gnr_mean = 40;       
+L_gnr_std = 20;        
+avg_domain_size = 35;
+target_angle = 0;
+mean_defect_distance = 25;
+morphology = 'aligned';
+
+min_gnr_length = 10; 
+gnr_spacing = 1.0;    
+end_to_end_gap = 1.0; 
+angle_variance = 2.0; 
+slide_step = 0.5;     
+
+% Instantly plot the new rounded schematic to screen
+generate_gnr_schematic(L_gap, apex_angle, D_tip, L_gnr_mean, avg_domain_size, ...
+    target_angle, mean_defect_distance, L_gnr_std, min_gnr_length, ...
+    gnr_spacing, end_to_end_gap, angle_variance, slide_step, morphology, ...
+    false, '');

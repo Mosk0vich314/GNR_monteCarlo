@@ -3,6 +3,7 @@ function generate_gnr_schematic(L_gap, apex_angle, D_tip, L_gnr_mean, avg_domain
     gamma_theta = (L_gnr_std^2) / L_gnr_mean; 
     gamma_k = (L_gnr_mean^2) / (L_gnr_std^2);
     
+    % --- ROUNDED TIP GEOMETRY MATH ---
     R = D_tip / 2; 
     half_angle = apex_angle / 2; 
     xc_L = -L_gap/2 - R; 
@@ -10,6 +11,7 @@ function generate_gnr_schematic(L_gap, apex_angle, D_tip, L_gnr_mean, avg_domain
     sim_limit = L_gap + D_tip + max(L_gnr_mean, 40); 
     xt_L = xc_L - R*sind(half_angle); 
     xt_R = xc_R + R*sind(half_angle);
+    % ---------------------------------
 
     success_found = false; 
     attempt_total = 0; 
@@ -151,13 +153,17 @@ function generate_gnr_schematic(L_gap, apex_angle, D_tip, L_gnr_mean, avg_domain
             
             for k = 1:length(w_GNR_X1)
                 xx = linspace(w_GNR_X1(k), w_GNR_X2(k), 10); yy = linspace(w_GNR_Y1(k), w_GNR_Y2(k), 10);
-                w_hL(k) = any(((xx-xc_L).^2+yy.^2<=R^2 & xx>=xt_L) | (xx<xt_L & abs(yy)<=R*cosd(half_angle)+(xt_L-xx)*tand(half_angle))); 
+                
+                % --- SMOOTH TANGENTIAL COLLISION DETECTION ---
+                w_hL(k) = any(((xx-xc_L).^2+yy.^2<=R^2 & xx>=xt_L) | (xx<xt_L & abs(yy)<=R*cosd(half_angle)+(xt_L-xx)*tand(half_angle)));
                 w_hR(k) = any(((xx-xc_R).^2+yy.^2<=R^2 & xx<=xt_R) | (xx>xt_R & abs(yy)<=R*cosd(half_angle)+(xx-xt_R)*tand(half_angle)));
                 
                 if w_hL(k) && w_hR(k)
                     w_bridges = w_bridges+1; w_is_b(k)=true; c_defects=0; d_x=w_DEF_X{k}; d_y=w_DEF_Y{k}; 
                     for def=1:length(d_x)
-                        if ~(((d_x(def)-xc_L)^2+d_y(def)^2<=R^2 & d_x(def)>=xt_L) | (d_x(def)<xt_L & abs(d_y(def))<=R*cosd(half_angle)+(xt_L-d_x(def))*tand(half_angle))) && ~(((d_x(def)-xc_R)^2+d_y(def)^2<=R^2 & d_x(def)<=xt_R) | (d_x(def)>xt_R & abs(d_y(def))<=R*cosd(half_angle)+(d_x(def)-xt_R)*tand(half_angle)))
+                        def_in_L = ((d_x(def)-xc_L)^2+d_y(def)^2<=R^2 & d_x(def)>=xt_L) | (d_x(def)<xt_L & abs(d_y(def))<=R*cosd(half_angle)+(xt_L-d_x(def))*tand(half_angle));
+                        def_in_R = ((d_x(def)-xc_R)^2+d_y(def)^2<=R^2 & d_x(def)<=xt_R) | (d_x(def)>xt_R & abs(d_y(def))<=R*cosd(half_angle)+(d_x(def)-xt_R)*tand(half_angle));
+                        if ~def_in_L && ~def_in_R
                             c_defects=c_defects+1; 
                         end
                     end
@@ -206,16 +212,17 @@ function generate_gnr_schematic(L_gap, apex_angle, D_tip, L_gnr_mean, avg_domain
             end
         end
         
-        % The Tangential Fillet Render Math
-        t_arc_L = linspace(-pi/2 - half_angle*pi/180, pi/2 + half_angle*pi/180, 50); 
+        % --- THE CORRECTED ROUNDED TIP RENDER MATH ---
+        t_arc_L = linspace(-pi/2 + half_angle*pi/180, pi/2 - half_angle*pi/180, 50); 
         arc_x_L = xc_L + R*cos(t_arc_L); arc_y_L = R*sin(t_arc_L); 
         far_x_L = -sim_limit*1.5; far_y_L = R*cosd(half_angle) + (xt_L - far_x_L)*tand(half_angle); 
         fill([arc_x_L, far_x_L, far_x_L], [arc_y_L, far_y_L, -far_y_L], [0.8 0.8 0.8], 'EdgeColor', 'k', 'FaceAlpha', 0.9, 'ZData', zeros(1,52)+5);
         
-        t_arc_R = linspace(pi/2 - half_angle*pi/180, 3*pi/2 + half_angle*pi/180, 50); 
+        t_arc_R = linspace(pi/2 + half_angle*pi/180, 3*pi/2 - half_angle*pi/180, 50); 
         arc_x_R = xc_R + R*cos(t_arc_R); arc_y_R = R*sin(t_arc_R); 
         far_x_R = sim_limit*1.5; far_y_R = R*cosd(half_angle) + (far_x_R - xt_R)*tand(half_angle); 
-        fill([arc_x_R, far_x_R, far_x_R], [arc_y_R, far_y_R, -far_y_R], [0.8 0.8 0.8], 'EdgeColor', 'k', 'FaceAlpha', 0.9, 'ZData', zeros(1,52)+5);
+        fill([arc_x_R, far_x_R, far_x_R], [arc_y_R, -far_y_R, far_y_R], [0.8 0.8 0.8], 'EdgeColor', 'k', 'FaceAlpha', 0.9, 'ZData', zeros(1,52)+5);
+        % ---------------------------------------------
         
         for k = 1:length(best_layout.GNR_X1)
             if max(best_layout.GNR_X1(k), best_layout.GNR_X2(k)) < -sim_limit*0.8 || min(best_layout.GNR_X1(k), best_layout.GNR_X2(k)) > sim_limit*0.8 || max(best_layout.GNR_Y1(k), best_layout.GNR_Y2(k)) < -sim_limit*0.8 || min(best_layout.GNR_Y1(k), best_layout.GNR_Y2(k)) > sim_limit*0.8
@@ -239,10 +246,9 @@ function generate_gnr_schematic(L_gap, apex_angle, D_tip, L_gnr_mean, avg_domain
             end
         end
         
-        zoom_x = (L_gap / 2) + (L_gnr_mean * 1.2); zoom_y = D_tip + (L_gnr_mean * 0.8); 
+        zoom_x = (L_gap / 2) + (L_gnr_mean * 1.2); zoom_y = (L_gnr_mean * 0.8) + (L_gap/2)*tand(half_angle); 
         xlim([-zoom_x, zoom_x]); ylim([-zoom_y, zoom_y]);
         
-        % Check for the 17th argument and add title safely
         if nargin == 17 && ~isempty(title_str)
             title(title_str, 'FontWeight', 'bold', 'FontSize', 14, 'Interpreter', 'none'); 
         end
