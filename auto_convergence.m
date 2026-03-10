@@ -15,28 +15,33 @@ function auto_convergence(data_folder, total_trials, num_workers)
     if ~exist(data_file, 'file')
         error('Could not find SimulationData.mat in %s', data_folder); 
     end
-    load(data_file); 
     
-    [~, max_idx] = max(map_1P(:)); 
-    [best_r, best_c, best_z] = ind2sub(size(map_1P), max_idx);
+    % --- THE FIX: STRICT STRUCT LOAD FOR PARFOR TRANSPARENCY ---
+    S = load(data_file); 
     
-    opt_X = param_X_values(best_c); 
-    opt_Y = param_Y_values(best_r); 
-    if length(param_Z_values) > 1
-        opt_Z = param_Z_values(best_z); 
-    else
-        opt_Z = param_Z_values(1); 
-    end
+    [~, max_idx] = max(S.map_1P(:)); 
+    [best_r, best_c, best_z] = ind2sub(size(S.map_1P), max_idx);
     
-    fprintf('Peak Yield Found: %.1f%%\n', map_1P(max_idx));
+    opt_X = S.param_X_values(best_c); 
+    opt_Y = S.param_Y_values(best_r); 
+    if length(S.param_Z_values) > 1; opt_Z = S.param_Z_values(best_z); else; opt_Z = S.param_Z_values(1); end
     
-    L_gap = base_L_gap; apex_angle = base_apex_angle; D_tip = base_D_tip; 
-    L_gnr_mean = base_L_gnr_mean; avg_domain_size = base_avg_domain_size; 
-    target_angle = base_target_angle; mean_defect_distance = base_mean_defect_distance;
+    fprintf('Peak Yield Found: %.1f%%\n', S.map_1P(max_idx));
+    
+    % Explicitly define variables so parfor can see them
+    L_gap = S.base_L_gap; apex_angle = S.base_apex_angle; D_tip = S.base_D_tip; 
+    L_gnr_mean = S.base_L_gnr_mean; avg_domain_size = S.base_avg_domain_size; 
+    target_angle = S.base_target_angle; mean_defect_distance = S.base_mean_defect_distance;
+    L_gnr_std = S.L_gnr_std; min_gnr_length = S.min_gnr_length; gnr_spacing = S.gnr_spacing; 
+    end_to_end_gap = S.end_to_end_gap; angle_variance = S.angle_variance; slide_step = S.slide_step; 
+    film_morphology = S.film_morphology;
+    
+    param_X_name = S.param_X_name; param_Y_name = S.param_Y_name; param_Z_name = S.param_Z_name;
     
     switch param_X_name; case 'L_gap', L_gap=opt_X; case 'apex_angle', apex_angle=opt_X; case 'D_tip', D_tip=opt_X; case 'L_gnr_mean', L_gnr_mean=opt_X; case 'avg_domain_size', avg_domain_size=opt_X; case 'target_angle', target_angle=opt_X; case 'mean_defect_distance', mean_defect_distance=opt_X; case 'L_gnr_std', L_gnr_std=opt_X; case 'min_gnr_length', min_gnr_length=opt_X; case 'gnr_spacing', gnr_spacing=opt_X; case 'end_to_end_gap', end_to_end_gap=opt_X; case 'angle_variance', angle_variance=opt_X; case 'slide_step', slide_step=opt_X; end
     switch param_Y_name; case 'L_gap', L_gap=opt_Y; case 'apex_angle', apex_angle=opt_Y; case 'D_tip', D_tip=opt_Y; case 'L_gnr_mean', L_gnr_mean=opt_Y; case 'avg_domain_size', avg_domain_size=opt_Y; case 'target_angle', target_angle=opt_Y; case 'mean_defect_distance', mean_defect_distance=opt_Y; case 'L_gnr_std', L_gnr_std=opt_Y; case 'min_gnr_length', min_gnr_length=opt_Y; case 'gnr_spacing', gnr_spacing=opt_Y; case 'end_to_end_gap', end_to_end_gap=opt_Y; case 'angle_variance', angle_variance=opt_Y; case 'slide_step', slide_step=opt_Y; end
     switch param_Z_name; case 'L_gap', L_gap=opt_Z; case 'apex_angle', apex_angle=opt_Z; case 'D_tip', D_tip=opt_Z; case 'L_gnr_mean', L_gnr_mean=opt_Z; case 'avg_domain_size', avg_domain_size=opt_Z; case 'target_angle', target_angle=opt_Z; case 'mean_defect_distance', mean_defect_distance=opt_Z; case 'L_gnr_std', L_gnr_std=opt_Z; case 'min_gnr_length', min_gnr_length=opt_Z; case 'gnr_spacing', gnr_spacing=opt_Z; case 'end_to_end_gap', end_to_end_gap=opt_Z; case 'angle_variance', angle_variance=opt_Z; case 'slide_step', slide_step=opt_Z; end
+    % -----------------------------------------------------------
 
     conv_folder = fullfile(data_folder, sprintf('00_Optimal_Convergence_%dk', round(total_trials/1000)));
     if ~exist(conv_folder, 'dir')
@@ -206,12 +211,12 @@ function auto_convergence(data_folder, total_trials, num_workers)
     fprintf('\nConvergence testing complete. Saving to nested folder...\n');
     is_target = (out_Np == 1) & (out_Nd == 0); 
     cumulative_yield = cumsum(is_target) ./ (1:total_trials)' * 100;
-    eval_window = round(total_trials * 0.10); 
-    std_dev = std(cumulative_yield(end-eval_window+1:end));
+    p_final = cumulative_yield(end) / 100;
+    std_dev = 100 * sqrt((p_final * (1 - p_final)) / total_trials);
     
     txt_path = fullfile(conv_folder, '00_Manuscript_Data.txt'); 
     fid = fopen(txt_path, 'w'); 
-    fprintf(fid, '--- OPTIMAL CONVERGENCE DATA ---\nTotal Trials: %d\nFinal Yield: %.2f%%\nStatistical Error (last %d trials): ±%.4f%%\n', total_trials, cumulative_yield(end), eval_window, std_dev); 
+    fprintf(fid, '--- OPTIMAL CONVERGENCE DATA ---\nTotal Trials: %d\nFinal Yield: %.2f%%\nBinomial Standard Error: ±%.4f%%\n', total_trials, cumulative_yield(end), std_dev); 
     fclose(fid);
     
     figure('Visible', 'off', 'Color', 'w', 'Position', [100, 100, 800, 500]); 
@@ -225,7 +230,10 @@ function auto_convergence(data_folder, total_trials, num_workers)
     exportgraphics(gcf, fullfile(conv_folder, '01_Convergence_Plot.png'), 'Resolution', 300);
     
     save(fullfile(conv_folder, 'Convergence_Data.mat'), 'out_Np', 'out_Nd', 'cumulative_yield'); 
+    
+    delete(gcp('nocreate')); % <-- Ensure safe pool assassination!
     try rmdir(job_folder, 's'); catch; end
+    
     fprintf('Convergence test successfully secured inside: %s\n', conv_folder);
 end
 

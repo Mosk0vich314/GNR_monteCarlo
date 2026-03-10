@@ -278,6 +278,7 @@ function out_folder = run_gnr_sweep(param_X_name, param_X_values, param_Y_name, 
     
     data_filename = fullfile(out_folder, 'SimulationData.mat');
     save(data_filename, 'X_grid', 'Y_grid', 'Z_grid', 'map_1P', 'map_1D', 'map_MP', 'map_MD', 'param_X_name', 'param_X_values', 'param_Y_name', 'param_Y_values', 'param_Z_name', 'param_Z_values', 'base_L_gap', 'base_apex_angle', 'base_D_tip', 'base_L_gnr_mean', 'base_avg_domain_size', 'base_target_angle', 'base_mean_defect_distance', 'L_gnr_std', 'min_gnr_length', 'gnr_spacing', 'end_to_end_gap', 'angle_variance', 'slide_step', 'film_morphology', 'trials_per_pixel');
+    delete(gcp('nocreate')); 
     try rmdir(job_folder, 's'); catch; end
     fprintf('[CHECKPOINT 8] Saved Successfully to: %s\n', data_filename);
 end

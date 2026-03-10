@@ -86,10 +86,9 @@ function run_convergence(scenario_name, total_trials, L_gap, apex_angle, D_tip, 
     is_target = (out_Np == 1) & (out_Nd == 0);
     cumulative_yield = cumsum(is_target) ./ (1:total_trials)' * 100;
     
-    % Calculate exact noise margin over the final 10% of trials
-    eval_window = round(total_trials * 0.10);
-    final_yields = cumulative_yield(end-eval_window+1:end);
-    std_dev = std(final_yields);
+    % Calculate exact Binomial Standard Error of the Mean (SEM)
+    p_final = cumulative_yield(end) / 100;
+    std_dev = 100 * sqrt((p_final * (1 - p_final)) / total_trials);
     
     % Output strictly formatted text for your manuscript
     txt_path = fullfile(out_folder, '00_Manuscript_Data.txt');
@@ -98,7 +97,7 @@ function run_convergence(scenario_name, total_trials, L_gap, apex_angle, D_tip, 
     fprintf(fid, 'Scenario: %s\n', scenario_name);
     fprintf(fid, 'Total Trials: %d\n', total_trials);
     fprintf(fid, 'Final Yield: %.2f%%\n', cumulative_yield(end));
-    fprintf(fid, 'Statistical Error (last %d trials): ±%.4f%%\n', eval_window, std_dev);
+    fprintf(fid, 'Binomial Standard Error: ±%.4f%%\n', std_dev);
     fclose(fid);
     
     figure('Visible', 'off', 'Color', 'w', 'Position', [100, 100, 800, 500]);
