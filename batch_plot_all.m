@@ -8,15 +8,28 @@ fprintf('\n==========================================\n');
 fprintf('STARTING MASS DATA ANALYSIS\n');
 fprintf('==========================================\n');
 
-% Find all folders in the current directory that start with 'SimRun_'
-folders = dir('SimRun_*');
+% 1. Open a UI dialog box to select the parent folder
+parent_dir = uigetdir('', 'Select the folder containing your SimRun downloads');
+
+% Check if the user clicked "Cancel"
+if isequal(parent_dir, 0)
+    fprintf('Operation canceled. No folder selected.\n');
+    return;
+end
+
+fprintf('Target Directory: %s\n', parent_dir);
+
+% 2. Find all folders in the selected directory that start with 'SimRun_'
+search_path = fullfile(parent_dir, 'SimRun_*');
+folders = dir(search_path);
 success_count = 0;
 fail_count = 0;
 
 for i = 1:length(folders)
     if folders(i).isdir
-        target_folder = folders(i).name;
-        fprintf('\n---> Analyzing Folder: %s\n', target_folder);
+        % Construct the absolute path to the specific SimRun folder
+        target_folder = fullfile(parent_dir, folders(i).name);
+        fprintf('\n---> Analyzing: %s\n', folders(i).name);
         
         % Check if the 128-core data file actually exists inside
         if ~exist(fullfile(target_folder, 'SimulationData.mat'), 'file')
@@ -25,12 +38,12 @@ for i = 1:length(folders)
         end
         
         try
-            % Call your existing plot function and tell it to save the figures (true)
+            % Call your existing plot function using the absolute path
             plot_gnr_data(target_folder, true);
             fprintf('Plots generated and saved successfully!\n');
             success_count = success_count + 1;
         catch ME
-            warning('Failed to plot %s! Error: %s', target_folder, ME.message);
+            warning('Failed to plot! Error: %s', ME.message);
             fail_count = fail_count + 1;
         end
         
