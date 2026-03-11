@@ -29,6 +29,28 @@ function plot_gnr_data(data_folder, generate_schematic)
     if ~exist('slide_step', 'var'); slide_step = 0.5; end
     % ----------------------------
     
+    % --- CALCULATE MISSING 'OPEN CIRCUIT' YIELD ---
+    % The sum of all stored probabilities represents the total connection probability.
+    % Whatever is left over is the probability that ZERO ribbons bridged the gap.
+    map_Zero = max(0, 100 - (map_1P + map_1D + map_MP + map_MD)); 
+    
+    % --- DYNAMIC PLOT SELECTION (Hides Defect plots if irrelevant) ---
+    has_defects = (max(map_1D(:)) > 0) || (max(map_MD(:)) > 0);
+    
+    if has_defects
+        maps = {map_1P, map_1D, map_MP, map_MD, map_Zero}; 
+        titles = {'Target: 1 Pristine GNR', 'Failure: 1 Defective GNR', 'Failure: Short Circuit (>1 Pristine)', 'Failure: Multi-Bridge w/ Defects', 'Failure: Open Circuit (0 GNRs)'}; 
+        files = {'01_1P', '02_1D', '03_MP', '04_MD', '05_Zero'};
+        line_colors = {'r', 'b', [0.6 0 0.8], [0.8 0.4 0], [0.4 0.4 0.4]};
+        line_styles = {'-o', '-.^', '--s', '-.d', ':x'};
+    else
+        maps = {map_1P, map_MP, map_Zero}; 
+        titles = {'Target: 1 Pristine GNR', 'Failure: Short Circuit (>1 Pristine)', 'Failure: Open Circuit (0 GNRs)'}; 
+        files = {'01_1P', '02_MP', '03_Zero'};
+        line_colors = {'r', [0.6 0 0.8], [0.4 0.4 0.4]};
+        line_styles = {'-o', '--s', ':x'};
+    end
+
     is_3D_sweep = length(param_Z_values) > 1; 
     is_1D_sweep = (length(param_X_values) == 1 || length(param_Y_values) == 1) && ~is_3D_sweep;
     
@@ -51,11 +73,7 @@ function plot_gnr_data(data_folder, generate_schematic)
         y_slices = param_Y_values(y_idx); 
         z_slices = param_Z_values(z_idx);
         
-        maps = {map_1P, map_1D, map_MP, map_MD}; 
-        titles = {'1 Pristine GNR (Target)', '1 Defective GNR', '>1 Pristine GNRs (Short Circuit)', 'Multi-Bridge w/ Defects'}; 
-        files = {'01_3D_1P.png', '02_3D_1D.png', '03_3D_MP.png', '04_3D_MD.png'};
-        
-        for m = 1:4
+        for m = 1:length(maps)
             current_map = maps{m}; 
             figure('Visible', 'off', 'Color', 'w', 'Position', [50, 50, 1400, 1000]); 
             sgtitle(titles{m}, 'FontSize', 18, 'FontWeight', 'bold');
@@ -89,22 +107,29 @@ function plot_gnr_data(data_folder, generate_schematic)
             
             colormap('parula'); c = colorbar; c.Label.String = 'Probability (%)'; c.Label.FontWeight = 'bold'; 
             xlabel(label_map(param_X_name), 'FontWeight', 'bold'); ylabel(label_map(param_Y_name), 'FontWeight', 'bold'); zlabel(label_map(param_Z_name), 'FontWeight', 'bold'); 
-            exportgraphics(gcf, fullfile(data_folder, files{m}), 'Resolution', 300); close(gcf); 
+            exportgraphics(gcf, fullfile(data_folder, sprintf('3D_%s.png', files{m})), 'Resolution', 300); close(gcf); 
         end
     elseif is_1D_sweep
         sweep_vals = param_X_values; sweep_name = param_X_name; 
         if length(param_Y_values) > 1; sweep_vals = param_Y_values; sweep_name = param_Y_name; end
         
-        figure('Visible', 'off', 'Color', 'w', 'Position', [100, 100, 800, 600]); hold on; box on; 
-        plot(sweep_vals, squeeze(map_1P), '-or', 'LineWidth', 2); 
-        title('Target Yield: 1 Pristine GNR'); xlabel(label_map(sweep_name), 'FontWeight', 'bold'); ylabel('Yield (%)', 'FontWeight', 'bold'); 
-        exportgraphics(gcf, fullfile(data_folder, '01_1D_Pristine.png'), 'Resolution', 300); close(gcf);
+        figure('Visible', 'off', 'Color', 'w', 'Position', [100, 100, 800, 600]); hold on; box on; grid on;
+        for m = 1:length(maps)
+            plot(sweep_vals, squeeze(maps{m}), line_styles{m}, 'LineWidth', 2, 'Color', line_colors{m}, 'DisplayName', titles{m}); 
+        end
+        title('Probability Distribution of All Outcomes', 'FontWeight', 'bold'); 
+        xlabel(label_map(sweep_name), 'FontWeight', 'bold'); ylabel('Probability (%)', 'FontWeight', 'bold'); 
+        legend('Location', 'best');
+        exportgraphics(gcf, fullfile(data_folder, '1D_All_Yields.png'), 'Resolution', 300); close(gcf);
     else
-        figure('Visible', 'off', 'Color', 'w', 'Position', [100, 100, 900, 650]); 
-        contourf(X_grid(:,:,1), Y_grid(:,:,1), map_1P(:,:,1), 100, 'LineColor', 'none'); 
-        colormap('parula'); colorbar; 
-        title('Target Yield: 1 Pristine GNR'); xlabel(label_map(param_X_name), 'FontWeight', 'bold'); ylabel(label_map(param_Y_name), 'FontWeight', 'bold'); 
-        exportgraphics(gcf, fullfile(data_folder, '01_2D_Pristine.png'), 'Resolution', 300); close(gcf);
+        for m = 1:length(maps)
+            figure('Visible', 'off', 'Color', 'w', 'Position', [100, 100, 900, 650]); 
+            contourf(X_grid(:,:,1), Y_grid(:,:,1), maps{m}(:,:,1), 100, 'LineColor', 'none'); 
+            colormap('parula'); colorbar; 
+            title(titles{m}, 'FontWeight', 'bold'); 
+            xlabel(label_map(param_X_name), 'FontWeight', 'bold'); ylabel(label_map(param_Y_name), 'FontWeight', 'bold'); 
+            exportgraphics(gcf, fullfile(data_folder, sprintf('2D_%s.png', files{m})), 'Resolution', 300); close(gcf);
+        end
     end
     
     if generate_schematic
@@ -117,7 +142,15 @@ function plot_gnr_data(data_folder, generate_schematic)
         fid = fopen(txt_path, 'w'); 
         fprintf(fid, '=== OPTIMAL MANUFACTURING SETTINGS ===\nPeak Target Yield (1 Pristine GNR): %.1f%%\n\n--- Sweet Spot Parameters ---\n%s: %g\n%s: %g\n', map_1P(max_idx), label_map(param_X_name), opt_X, label_map(param_Y_name), opt_Y); 
         if is_3D_sweep; fprintf(fid, '%s: %g\n', label_map(param_Z_name), opt_Z); end
-        fprintf(fid, '\n--- Failure Risks at this Peak ---\nDefective Bridges: %.1f%%\nShort Circuits (Multi-Pristine): %.1f%%\n', map_1D(max_idx), map_MP(max_idx)); 
+        
+        fprintf(fid, '\n--- Failure Risks at this Peak ---\nOpen Circuit (0 GNRs): %.1f%%\n', map_Zero(max_idx));
+        if has_defects
+            fprintf(fid, 'Defective Bridges: %.1f%%\n', map_1D(max_idx));
+        end
+        fprintf(fid, 'Short Circuits (Multi-Pristine): %.1f%%\n', map_MP(max_idx));
+        if has_defects
+            fprintf(fid, 'Multi-Bridge w/ Defects: %.1f%%\n', map_MD(max_idx));
+        end
         fclose(fid);
         
         L_gap = base_L_gap; apex_angle = base_apex_angle; D_tip = base_D_tip; 
