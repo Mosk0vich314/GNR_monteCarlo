@@ -1,4 +1,4 @@
-function plot_gnr_data(data_folder, generate_schematic)
+function plot_gnr_data(data_folder, generate_schematic, varargin)
     if nargin < 2
         generate_schematic = false; 
     end
@@ -30,8 +30,6 @@ function plot_gnr_data(data_folder, generate_schematic)
     % ----------------------------
     
     % --- CALCULATE MISSING 'OPEN CIRCUIT' YIELD ---
-    % The sum of all stored probabilities represents the total connection probability.
-    % Whatever is left over is the probability that ZERO ribbons bridged the gap.
     map_Zero = max(0, 100 - (map_1P + map_1D + map_MP + map_MD)); 
     
     % --- DYNAMIC PLOT SELECTION (Hides Defect plots if irrelevant) ---
@@ -58,20 +56,47 @@ function plot_gnr_data(data_folder, generate_schematic)
         {'L_gap', 'apex_angle', 'D_tip', 'L_gnr_mean', 'avg_domain_size', 'target_angle', 'mean_defect_distance', 'L_gnr_std', 'min_gnr_length', 'gnr_spacing', 'end_to_end_gap', 'angle_variance', 'slide_step'}, ...
         {'Gap (nm)', 'Tip Angle (deg)', 'Tip Diam (nm)', 'GNR L (nm)', 'Domain Size (nm)', 'Align Angle (deg)', 'Defect Dist (nm)', 'Length Std Dev (nm)', 'Min Length (nm)', 'GNR Spacing (nm)', 'End-to-End Gap (nm)', 'Angle Variance (deg)', 'Slide Step (nm)'});
     
-    mid_c = round(length(param_X_values)/2); x_mid = param_X_values(mid_c); 
-    mid_r = round(length(param_Y_values)/2); y_mid = param_Y_values(mid_r); 
-    mid_z = round(length(param_Z_values)/2); z_mid = param_Z_values(mid_z);
+    % --- PARSE CUSTOM SLICE TARGETS ---
+    target_X = []; target_Y = []; target_Z = [];
+    for i = 1:2:length(varargin)
+        switch lower(varargin{i})
+            case 'slice_x', target_X = varargin{i+1};
+            case 'slice_y', target_Y = varargin{i+1};
+            case 'slice_z', target_Z = varargin{i+1};
+        end
+    end
+    
+    % --- DYNAMIC SLICE SELECTION ---
+    if isempty(target_X)
+        mid_c = max(1, round(length(param_X_values)/2)); x_mid = param_X_values(mid_c);
+        num_slices = 3; x_idx = unique(round(linspace(2, max(2, length(param_X_values)-1), num_slices)));
+        x_slices = param_X_values(x_idx);
+    else
+        x_slices = target_X;
+        [~, mid_c] = min(abs(param_X_values - target_X(1))); x_mid = param_X_values(mid_c);
+    end
+    
+    if isempty(target_Y)
+        mid_r = max(1, round(length(param_Y_values)/2)); y_mid = param_Y_values(mid_r);
+        num_slices = 3; y_idx = unique(round(linspace(2, max(2, length(param_Y_values)-1), num_slices)));
+        y_slices = param_Y_values(y_idx);
+    else
+        y_slices = target_Y;
+        [~, mid_r] = min(abs(param_Y_values - target_Y(1))); y_mid = param_Y_values(mid_r);
+    end
+    
+    if isempty(target_Z)
+        mid_z = max(1, round(length(param_Z_values)/2)); z_mid = param_Z_values(mid_z);
+        num_slices = 3; z_idx = unique(round(linspace(2, max(2, length(param_Z_values)-1), num_slices)));
+        z_slices = param_Z_values(z_idx);
+    else
+        z_slices = target_Z;
+        [~, mid_z] = min(abs(param_Z_values - target_Z(1))); z_mid = param_Z_values(mid_z);
+    end
+    % -------------------------------
 
     if is_3D_sweep
         fprintf('Silently Plotting 3D Data...\n');
-        num_slices = 3; 
-        x_idx = unique(round(linspace(2, max(2, length(param_X_values)-1), num_slices))); 
-        y_idx = unique(round(linspace(2, max(2, length(param_Y_values)-1), num_slices))); 
-        z_idx = unique(round(linspace(2, max(2, length(param_Z_values)-1), num_slices))); 
-        
-        x_slices = param_X_values(x_idx); 
-        y_slices = param_Y_values(y_idx); 
-        z_slices = param_Z_values(z_idx);
         
         for m = 1:length(maps)
             current_map = maps{m}; 

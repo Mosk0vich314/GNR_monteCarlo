@@ -1,6 +1,16 @@
 function analyze_gnr_results(folder_path)
     % Deep Analysis of Raw GNR Nematic Simulation Data
     
+    % --- UI FOLDER SELECTION FALLBACK ---
+    if nargin < 1
+        folder_path = uigetdir('', 'Select a SimRun folder to analyze');
+        if isequal(folder_path, 0)
+            fprintf('Analysis canceled.\n');
+            return;
+        end
+    end
+    % ------------------------------------
+
     % 1. Load the raw matrices
     data_file = fullfile(folder_path, 'SimulationData.mat');
     if ~exist(data_file, 'file')
@@ -95,28 +105,71 @@ function analyze_gnr_results(folder_path)
         fprintf('   WARNING: No parameters meet this strict safety criteria.\n\n');
     end
 
-    % --- METRIC 3: 1D SENSITIVITY CROSS-SECTION ---
+    % --- METRIC 3: 1D SENSITIVITY CROSS-SECTION (DYNAMIC UI) ---
     fprintf('3. SENSITIVITY PROFILE AROUND OPTIMUM\n');
-    x_slice = squeeze(map_1P(best_r, :, best_z));
     
+    % Determine which variables were actually swept
+    is_2d = length(param_Y_values) > 1;
+    is_3d = exist('param_Z_values', 'var') && length(param_Z_values) > 1;
+    
+    % Ask the user which axis to plot
+    if is_3d
+        choice = questdlg('Which parameter do you want to plot for the sensitivity profile?', ...
+            'Select Sensitivity Axis', param_X_name, param_Y_name, param_Z_name, param_X_name);
+    elseif is_2d
+        choice = questdlg('Which parameter do you want to plot for the sensitivity profile?', ...
+            'Select Sensitivity Axis', param_X_name, param_Y_name, param_X_name);
+    else
+        choice = param_X_name; % Only 1D, so default to X
+    end
+    
+    % Extract the correct 1D slice based on user choice
     figure('Color', 'w', 'Position', [200, 200, 700, 500]);
     hold on; box on; grid on;
     
-    plot(param_X_values, x_slice, '-o', 'LineWidth', 2.5, 'Color', 'r', 'DisplayName', '1 Pristine (Target)');
-    plot(param_X_values, squeeze(map_MP(best_r, :, best_z)), '--s', 'LineWidth', 1.5, 'Color', [0.6 0 0.8], 'DisplayName', 'Multi-Pristine (Short)');
-    plot(param_X_values, squeeze(map_1D(best_r, :, best_z)), '-.^', 'LineWidth', 1.5, 'Color', 'b', 'DisplayName', 'Defective');
+    switch choice
+        case param_X_name
+            slice_1P = squeeze(map_1P(best_r, :, best_z));
+            slice_MP = squeeze(map_MP(best_r, :, best_z));
+            slice_1D = squeeze(map_1D(best_r, :, best_z));
+            sweep_vals = param_X_values;
+            title_str = sprintf('Sensitivity (Fixed %s=%g', strrep(param_Y_name, '_', ' '), opt_Y);
+            if is_3d; title_str = [title_str, sprintf(', %s=%g)', strrep(param_Z_name, '_', ' '), opt_Z)]; else; title_str = [title_str, ')']; end
+            
+        case param_Y_name
+            slice_1P = squeeze(map_1P(:, best_c, best_z));
+            slice_MP = squeeze(map_MP(:, best_c, best_z));
+            slice_1D = squeeze(map_1D(:, best_c, best_z));
+            sweep_vals = param_Y_values;
+            title_str = sprintf('Sensitivity (Fixed %s=%g', strrep(param_X_name, '_', ' '), opt_X);
+            if is_3d; title_str = [title_str, sprintf(', %s=%g)', strrep(param_Z_name, '_', ' '), opt_Z)]; else; title_str = [title_str, ')']; end
+            
+        case param_Z_name
+            slice_1P = squeeze(map_1P(best_r, best_c, :));
+            slice_MP = squeeze(map_MP(best_r, best_c, :));
+            slice_1D = squeeze(map_1D(best_r, best_c, :));
+            sweep_vals = param_Z_values;
+            title_str = sprintf('Sensitivity (Fixed %s=%g, %s=%g)', strrep(param_X_name, '_', ' '), opt_X, strrep(param_Y_name, '_', ' '), opt_Y);
+    end
     
-    plot(opt_X, max_yield, 'k*', 'MarkerSize', 12, 'HandleVisibility', 'off');
+    % Plot the selected slice
+    plot(sweep_vals, slice_1P, '-o', 'LineWidth', 2.5, 'Color', 'r', 'DisplayName', '1 Pristine (Target)');
+    plot(sweep_vals, slice_MP, '--s', 'LineWidth', 1.5, 'Color', [0.6 0 0.8], 'DisplayName', 'Multi-Pristine (Short)');
+    plot(sweep_vals, slice_1D, '-.^', 'LineWidth', 1.5, 'Color', 'b', 'DisplayName', 'Defective');
     
-    xlabel(strrep(param_X_name, '_', ' '), 'FontWeight', 'bold');
+    % Mark the exact optimal peak
+    plot(choice == param_X_name * opt_X + choice == param_Y_name * opt_Y + choice == param_Z_name * opt_Z, ... % Math trick to get the right opt value
+         max_yield, 'k*', 'MarkerSize', 12, 'HandleVisibility', 'off');
+    
+    xlabel(strrep(choice, '_', ' '), 'FontWeight', 'bold');
     ylabel('Probability (%)', 'FontWeight', 'bold');
-    title(sprintf('Sensitivity Profile (Fixed %s=%g)', strrep(param_Y_name, '_', ' '), opt_Y));
+    title(title_str);
     legend('Location', 'best');
     
     xl = xlim; dx = diff(xl) * 0.05; xlim([xl(1)-dx, xl(2)+dx]);
     yl = ylim; dy = diff(yl) * 0.05; ylim([yl(1)-dy, yl(2)+dy]);
     
-    exportgraphics(gcf, fullfile(folder_path, '11_Sensitivity_Analysis.png'), 'Resolution', 300);
-    fprintf('   Saved sensitivity plot to folder.\n');
+    exportgraphics(gcf, fullfile(folder_path, sprintf('11_Sensitivity_Analysis_%s.png', choice)), 'Resolution', 300);
+    fprintf('   Saved sensitivity plot to folder as 11_Sensitivity_Analysis_%s.png\n', choice);
     fprintf('======================================================\n');
 end
