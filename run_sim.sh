@@ -7,7 +7,7 @@
 #SBATCH --output=sim_log_%j.out        
 #SBATCH --error=sim_log_%j.err         
 #SBATCH --mail-type=END,FAIL           
-#SBATCH --mail-user=your_email@ethz.ch 
+#SBATCH --mail-user=andrea.moschettini@empa.ch 
 
 module load matlab
 matlab -nodisplay -nosplash -nodesktop -logfile "LIVE_MATLAB_LOG.txt" -r "batch_master; exit"
