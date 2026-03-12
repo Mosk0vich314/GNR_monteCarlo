@@ -133,6 +133,7 @@ function analyze_gnr_results(folder_path)
             slice_MP = squeeze(map_MP(best_r, :, best_z));
             slice_1D = squeeze(map_1D(best_r, :, best_z));
             sweep_vals = param_X_values;
+            opt_val = opt_X; % <--- Clean assignment
             title_str = sprintf('Sensitivity (Fixed %s=%g', strrep(param_Y_name, '_', ' '), opt_Y);
             if is_3d; title_str = [title_str, sprintf(', %s=%g)', strrep(param_Z_name, '_', ' '), opt_Z)]; else; title_str = [title_str, ')']; end
             
@@ -141,6 +142,7 @@ function analyze_gnr_results(folder_path)
             slice_MP = squeeze(map_MP(:, best_c, best_z));
             slice_1D = squeeze(map_1D(:, best_c, best_z));
             sweep_vals = param_Y_values;
+            opt_val = opt_Y; % <--- Clean assignment
             title_str = sprintf('Sensitivity (Fixed %s=%g', strrep(param_X_name, '_', ' '), opt_X);
             if is_3d; title_str = [title_str, sprintf(', %s=%g)', strrep(param_Z_name, '_', ' '), opt_Z)]; else; title_str = [title_str, ')']; end
             
@@ -149,6 +151,7 @@ function analyze_gnr_results(folder_path)
             slice_MP = squeeze(map_MP(best_r, best_c, :));
             slice_1D = squeeze(map_1D(best_r, best_c, :));
             sweep_vals = param_Z_values;
+            opt_val = opt_Z; % <--- Clean assignment
             title_str = sprintf('Sensitivity (Fixed %s=%g, %s=%g)', strrep(param_X_name, '_', ' '), opt_X, strrep(param_Y_name, '_', ' '), opt_Y);
     end
     
@@ -158,8 +161,7 @@ function analyze_gnr_results(folder_path)
     plot(sweep_vals, slice_1D, '-.^', 'LineWidth', 1.5, 'Color', 'b', 'DisplayName', 'Defective');
     
     % Mark the exact optimal peak
-    plot(choice == param_X_name * opt_X + choice == param_Y_name * opt_Y + choice == param_Z_name * opt_Z, ... % Math trick to get the right opt value
-         max_yield, 'k*', 'MarkerSize', 12, 'HandleVisibility', 'off');
+    plot(opt_val, max_yield, 'k*', 'MarkerSize', 12, 'HandleVisibility', 'off');
     
     xlabel(strrep(choice, '_', ' '), 'FontWeight', 'bold');
     ylabel('Probability (%)', 'FontWeight', 'bold');
